@@ -1,5 +1,5 @@
 {
-  "name": "Library",
+  "name": "Project",
   "image": "mcr.microsoft.com/devcontainers/python:3",
   "features": {
     "ghcr.io/devcontainers/features/python:1": {},
@@ -31,8 +31,5 @@
         "editor.lineNumbers": "relative"
       }
     }
-  },
-  "postCreateCommand": "uv init --lib && uv add --dev pre-commit && uv tool run pre-commit install",
-  "postStartCommand": "uv sync",
-  "remoteUser": "vscode"
+  }
 }
