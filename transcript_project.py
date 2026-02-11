@@ -21,8 +21,56 @@ def _():
     import json
     from dotenv import load_dotenv
     import os
+    from pydantic import BaseModel
+    import uuid
 
-    return OpenAI, load_dotenv, mo, os, pl
+    return BaseModel, OpenAI, load_dotenv, mo, os, pl, uuid
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    ## Organizing Medical Transcriptions with OpenAI API
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    Medical professionals often summarize patient encounters in transcripts written in natural language, which include details about symptoms,
+    diagnosis, and treatments. These transcripts can be used for other medical documentation, such as for insurance purposes, but as they are
+    densely packed with medical information, extracting the key data accurately can be challenging.
+
+    You and your team at Lakeside Healthcare Network have decided to leverage the OpenAI API to automatically extract medical information from
+    these transcripts and automate the matching with the appropriate ICD-10 codes. ICD-10 codes are a standardized system used worldwide for
+    diagnosing and billing purposes, such as insurance claims processing.
+
+    **The Data**
+
+    The dataset contains anonymized medical transcriptions categorized by specialty.
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    ## The Ask
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    You have been provided with an anonymized dataset of medical transcriptions organized by specialty, transcriptions.csv.
+    Use the OpenAI API to extract "age", "medical_specialty", and a new data field to store the recommended treatment extracted
+    from each transcription.
+    Match each recommended treatment with the corresponding International Classification of Diseases (ICD) code, and save your
+    answers in a pandas DataFrame named df_structured.
+    """)
+    return
 
 
 @app.cell
@@ -70,6 +118,17 @@ def _(OpenAI, load_dotenv, os):
     OPENAI_API_KEY=os.getenv("OPENAI_API_KEY")
 
     client=OpenAI(api_key=OPENAI_API_KEY)
+    return
+
+
+@app.cell
+def _(BaseModel, uuid):
+    class TreatmentPlan(BaseModel):
+        id: uuid.UUID
+        age: int
+        medical_speciality: str
+        recommended_treatment: str
+
     return
 
 
