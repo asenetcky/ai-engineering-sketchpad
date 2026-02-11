@@ -10,7 +10,7 @@
 
 import marimo
 
-__generated_with = "0.19.7"
+__generated_with = "0.19.9"
 app = marimo.App(width="medium")
 
 
@@ -22,6 +22,7 @@ def _():
     from dotenv import load_dotenv
     import os
     from pathlib import Path
+
     return OpenAI, load_dotenv, os
 
 
@@ -29,8 +30,8 @@ def _():
 def _(OpenAI, load_dotenv, os):
     load_dotenv()
 
-    OPEN_API_TOKEN = os.getenv("OPENAI_API_TOKEN")
-    client = OpenAI(api_key=OPEN_API_TOKEN)
+    OPENAI_API_TOKEN = os.getenv("OPENAI_API_TOKEN")
+    client = OpenAI(api_key=OPENAI_API_TOKEN)
     return (client,)
 
 
@@ -103,7 +104,6 @@ def _(client):
     )
 
     print(_response.choices[0].message.content)
-
     return
 
 
@@ -122,6 +122,28 @@ def _(client):
     )
 
     print(_response.choices[0].message.content)
+    return
+
+
+@app.cell
+def _():
+    # you can use the assistant role for more targeted context
+    # you can do chain of thought for clear reasoning.
+    # you can ask the ai to play a role -  you can even ask it to play the role of multiple experts, have it do some work and then come to some consensus on what the right solution is.
+    return
+
+
+@app.cell
+def _(client):
+    mod_response = client.moderations.create(
+        input="HI!"
+    )
+    return (mod_response,)
+
+
+@app.cell
+def _(mod_response):
+    mod_response.results[0].categories.self_harm
     return
 
 
