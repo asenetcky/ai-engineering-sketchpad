@@ -184,7 +184,7 @@ def _(get_transcript_info, json, transcription_data):
 
 @app.function
 def get_medical_speciality(transcript):
-    return transcript["medical_speciality"]
+    return transcript["medical_specialty"]
 
 
 @app.cell
@@ -238,10 +238,10 @@ def _(client):
 
 
 @app.cell
-def _(get_icd_codes, get_transcript_info, transcription_data):
+def _(get_icd_codes, get_transcript_info):
     def compile_dict(transcription):
         list = []  
-        for transcript_dict in transcription_data.to_dicts():
+        for transcript_dict in transcription.to_dicts():
             dict = {}
 
             info = get_transcript_info(transcript_dict)
@@ -266,7 +266,7 @@ def _(get_icd_codes, get_transcript_info, transcription_data):
 
 @app.cell
 def _(compile_dict, transcription_data):
-    data = compile_dict(transcription=transcription_data.to_dicts())
+    data = compile_dict(transcription=transcription_data)
     return (data,)
 
 
@@ -310,8 +310,6 @@ def _():
     import json
     from dotenv import load_dotenv
     import os
-    from pydantic import BaseModel
-    import uuid
 
     return OpenAI, json, load_dotenv, mo, os, pl
 
