@@ -1,6 +1,7 @@
 # /// script
 # dependencies = [
 #     "marimo",
+#     "openai==2.21.0",
 #     "pinecone==8.1.0",
 #     "python-dotenv==1.2.1",
 # ]
@@ -117,8 +118,8 @@ def _(index):
     return
 
 
-app._unparsable_cell(
-    r"""
+@app.cell
+def _(PINECONE_API_KEY, Pinecone, pc, vector):
     # batching and chunking
     #start with a chunk function
     import itertools
@@ -143,13 +144,107 @@ app._unparsable_cell(
     parallel_pc = Pinecone(api_key=PINECONE_API_KEY, pool_threads=30)
 
     with parallel_pc.Index('datacamp-index', pool_threads=30) as index:
-        async_results = [index.upsert(vectors=chunk, async_req=True)]
-            for chunk in chunks(vector, batch_size=100)
+        async_results = [index.upsert(vectors=chunk, async_req=True) for chunk in chunks(vector, batch_size=100)]
         [async_results.get() for async_result in async_results]
 
-    """,
-    name="_"
-)
+    return (index,)
+
+
+@app.cell
+def _(client, index):
+    # for semantic search 
+
+    def retrieve(query, top_k, namespace, emb_model):
+        query_response = client.embeddings.create(input=query, model=emb_model)
+        query_emb = query_response.data[0].embedding
+        docs = index.query(vector=query_emb, top_k=top_k, namespace=namespace, include_metadata=True)
+        retrieved_docs = [doc['metadata']['text'] for doc in docs['matches']]
+        sources = [(doc['metadata']['title'], doc['metadata']['url']) for doc in docs['matches']]
+        return retrieved_docs, sources
+
+
+    return
+
+
+@app.cell
+def _(api, index, os):
+    # for rag
+    from openai import OpenAI
+
+    OPENAI_API_TOKEN=os.getenv("OPENAI_API_TOKEN")
+
+
+    client = OpenAI(api)
+
+    def retrieve(query, top_k, namespace, emb_model):
+
+        #encode the input query using OpenAI
+        query_response = client.embeddings.create(
+            input=query,
+            model=emb_model
+        )
+
+        query_emb=query_response.data[0].embedding
+
+        docs = index.query(
+            vector=query_emb, 
+            top_k=top_k,
+            namespace=namespace,
+            include_metadata=True
+        )
+
+        retrieved_docs = []
+        sources = []
+        for doc in docs['matches']:
+            retrieved_docs.append(
+                doc['metadata']['text']
+            )
+            sources.append(
+                (
+                    doc['metadata']['title'],
+                    doc['metadata']['url']
+                )
+            )
+            return retrieved_docs, sources
+
+    def prompt_with_context_builder(query, docs):
+        delim = '\n\n---\n\n'
+        prompt_start = 'Answer the question based on the context below.\n\nContext:\n'
+        prompt_end = f'\n\nQuestion: {query}\nAnswer:'
+
+        prompt = prompt_start + delim.join(docs) + prompt_end
+        return prompt
+
+    def question_answering(prompt, sources, chat_model):
+        sys_prompt = "You are a helpful assistant that always answers questions."
+
+        res=client.chat.completions.create(
+            model = chat_model,
+            messages=[
+                {"role":"system", "content":sys_prompt},
+                {"role":"user", "content": prompt},
+            ],
+            temperature=0
+        )
+        answer = res.choices[0].message.content.strip()
+        answer += "\n\nSources:"
+
+        for source in sources:
+            answer += "\n" + source[0] + ": " + source[1]
+
+        return answer
+
+    return (client,)
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
 
 
 if __name__ == "__main__":
