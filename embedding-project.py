@@ -8,14 +8,17 @@
 #     "polars==1.38.1",
 #     "pysqlite3==0.6.0",
 #     "python-dotenv==1.2.1",
+#     "ruff==0.15.2",
 #     "scikit-learn==1.8.0",
+#     "vegafusion==2.0.3",
+#     "vl-convert-python==1.9.0.post1",
 # ]
 # requires-python = ">=3.13"
 # ///
 
 import marimo
 
-__generated_with = "0.19.11"
+__generated_with = "0.20.1"
 app = marimo.App(width="columns")
 
 
@@ -110,7 +113,7 @@ def _(reviews):
 
 @app.cell
 def _(reviews):
-    reviews_dict=reviews.collect().to_dicts()
+    reviews_dict = reviews.collect().to_dicts()
     return (reviews_dict,)
 
 
@@ -119,15 +122,15 @@ def _(reviews_dict):
     metadatas = []
 
     for review in reviews_dict:
-        meta ={
+        meta = {
             "clothing_id": review["Clothing ID"],
             "reviewer_age": review["Age"],
             "rating": review["Rating"],
-            "recommened":review["Recommended IND"],
-            "pos_feedback_count":review["Positive Feedback Count"],
-            "division":review["Division Name"],
-            "department":review["Department Name"],
-            "class":review["Class Name"]
+            "recommened": review["Recommended IND"],
+            "pos_feedback_count": review["Positive Feedback Count"],
+            "division": review["Division Name"],
+            "department": review["Department Name"],
+            "class": review["Class Name"],
         }
         metadatas.append(meta)
     metadatas
@@ -139,16 +142,16 @@ def _(reviews_dict):
     review_texts = []
 
     for document in reviews_dict:
-        doco = f"title: {(document.get("Title", " ") or " ")}, text: {document['Review Text']}"
+        doco = f"title: {(document.get('Title', ' ') or ' ')}, text: {document['Review Text']}"
         review_texts.append(doco)
-    
+
     review_texts
     return (review_texts,)
 
 
 @app.cell
 def _(pl, reviews):
-    ids= reviews.select(pl.col("Review ID")).collect().to_series().to_list()
+    ids = reviews.select(pl.col("Review ID")).collect().to_series().to_list()
     ids = [str(num) for num in ids]
     print(ids)
     return (ids,)
@@ -165,20 +168,28 @@ def _(mo):
 @app.cell
 def _(chromadb):
     # using a local chromadb client
-    chroma_client=chromadb.PersistentClient()
+    chroma_client = chromadb.PersistentClient()
     return (chroma_client,)
+
+
+@app.cell
+def _(chroma_client):
+    chroma_client.delete_collection(name="clothing_reviews")
+    return
 
 
 @app.cell
 def _(OPENAI_API_KEY, OpenAIEmbeddingFunction, chroma_client):
     # create the collection
-    collection=chroma_client.create_collection(
+    collection = chroma_client.create_collection(
         name="clothing_reviews",
         embedding_function=OpenAIEmbeddingFunction(
-            model_name="text-embedding-3-small",
-            api_key=OPENAI_API_KEY
-        )
+            model_name="text-embedding-3-small", api_key=OPENAI_API_KEY
+        ),
     )
+
+
+    # collection = chroma_client.get_collection(name="clothing_reviews")
     return (collection,)
 
 
@@ -202,10 +213,8 @@ def _(collection):
 def _(collection, mo):
     mo.md("create embeddings object")
 
-    embeddings_dict=collection.get(
-        include=["embeddings"]
-    )
-    embeddings=embeddings_dict.get("embeddings")
+    embeddings_dict = collection.get(include=["embeddings"])
+    embeddings = embeddings_dict.get("embeddings")
 
     embeddings
     return (embeddings,)
@@ -221,7 +230,7 @@ def _(TSNE, embeddings):
 
 @app.cell
 def _(embeddings_2d, plt, reviews_dict):
-    plt.scatter(embeddings_2d[:,0], embeddings_2d[:,1])
+    plt.scatter(embeddings_2d[:, 0], embeddings_2d[:, 1])
 
     topics = [clothing["Class Name"] for clothing in reviews_dict]
 
@@ -229,12 +238,68 @@ def _(embeddings_2d, plt, reviews_dict):
         plt.annotate(topic, (embeddings_2d[_i, 0], embeddings_2d[_i, 1]))
 
     plt.show()
-
     return
 
 
 @app.cell
-def _():
+def _(openai_client):
+    def create_embeddings(texts):
+        response = openai_client.embeddings.create(
+            model="text-embedding-3-small", input=texts
+        )
+
+        response_dict = response.model_dump()
+
+        return [data["embedding"] for data in response_dict["data"]]
+
+    return (create_embeddings,)
+
+
+@app.cell
+def _(distance):
+    def find_n_closest(query_vector, embeddings, n=3):
+        distances = []
+
+        for index, embedding in enumerate(embeddings):
+            dist = distance.cosine(query_vector, embedding)
+            distances.append({"distance": dist, "index": index})
+
+        distances_sorted = sorted(distances, key=lambda x: x["distance"])
+        return distances_sorted[0:n]
+
+    return (find_n_closest,)
+
+
+@app.cell
+def _(create_embeddings, embeddings, find_n_closest):
+    find_n_closest(
+        query_vector=create_embeddings("quality")[0], embeddings=embeddings
+    )
+    return
+
+
+@app.cell
+def _(collection):
+    collection.query(query_texts="clothes that are nice", n_results=2)
+    return
+
+
+@app.cell
+def _(categories, category_embeddings, distance, embeddings):
+    def categorize_feedback(text_embedding, category_embeddings):
+        similarities = [
+            {"distance": distance.cosine(text_embedding, cat_emb), "index": i}
+            for i, cat_emb in enumerate(category_embeddings)
+        ]
+        closest = min(similarities, key=lambda x: x["index"])
+        return categories[closest["index"]]
+
+
+    # Categorize feedback
+    feedback_categories = [
+        categorize_feedback(embedding, category_embeddings)
+        for embedding in embeddings
+    ]
     return
 
 
@@ -261,12 +326,14 @@ def _():
     from sklearn.manifold import TSNE
     import numpy as np
     import matplotlib.pyplot as plt
+    from scipy.spatial import distance
 
     return (
         OpenAI,
         OpenAIEmbeddingFunction,
         TSNE,
         chromadb,
+        distance,
         load_dotenv,
         mo,
         os,
@@ -289,7 +356,7 @@ def _(OpenAI, load_dotenv, os):
     OPENAI_API_KEY = os.getenv("OPENAI_API_TOKEN")
 
     openai_client = OpenAI(api_key=OPENAI_API_KEY)
-    return (OPENAI_API_KEY,)
+    return OPENAI_API_KEY, openai_client
 
 
 @app.cell(hide_code=True)
