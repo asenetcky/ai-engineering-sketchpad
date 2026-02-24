@@ -1,0 +1,11 @@
+id,name,subscription_type,active_users,auto_renewal
+101,Tech Innovators Inc.,Premium,450,true
+102,Green Solutions Ltd.,Standard,300,false
+103,Global Enterprises,Basic,150,true
+104,Peak Performance Co.,Premium,800,true
+105,Visionary Ventures,Standard,600,false
+106,NextGen Technologies,Basic,200,true
+107,Dynamic Dynamics LLC,Premium,700,true
+108,Infinity Services,Standard,500,false
+109,Eco-Friendly Products,Basic,100,true
+110,Future Insights,Premium,900,true
